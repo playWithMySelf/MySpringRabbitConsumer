@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:rabbit="http://www.springframework.org/schema/rabbit"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+    http://www.springframework.org/schema/rabbit http://www.springframework.org/schema/rabbit/spring-rabbit-1.0.xsd">
+
+    <!-- 引入jdbc配置文件 -->
+    <bean id="propertyConfigurer" class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+        <property name="locations">
+            <list>
+                <value>classpath*:rabbitmq.properties</value>
+            </list>
+        </property>
+    </bean>
+
+    <!-- rabbitMQ配置 -->
+    <bean id="rabbitConnectionFactory"
+          class="org.springframework.amqp.rabbit.connection.CachingConnectionFactory">
+        <constructor-arg value="${mq.host}"/>
+        <property name="username" value="${mq.username}"/>
+        <property name="password" value="${mq.password}"/>
+        <property name="channelCacheSize" value="${mq.channelCacheSize}"/>
+        <property name="port" value="${mq.port}"></property>
+    </bean>
+    <rabbit:admin connection-factory="rabbitConnectionFactory"/>
+
+    <!-- autoDelete:是否自动删除 durable:持久化  -->
+    <rabbit:queue name="topicMessageQueue" durable="true"/>
+    <rabbit:queue name="topicEmailQueue" durable="true"/>
+    <rabbit:queue name="directQueue" durable="true"/>
+
+    <!-- 启动两个队列对应的监听(消费者) -->
+    <bean id="topicMessageQueueConsumer" class="com.founder.bussiness.rabbitmq.service.TopicMessageQueueConsumer"></bean>
+    <bean id="topicEmailQueueConsumer" class="com.founder.bussiness.rabbitmq.service.TopicEmailQueueConsumer"></bean>
+
+    <bean id="directQueueConsumer" class="com.founder.bussiness.rabbitmq.service.DirectQueueConsumer"></bean>
+
+    <!-- 将两个队列加入监听容器中，每个队列的监听都对应一个监听器 -->
+    <rabbit:listener-container connection-factory="rabbitConnectionFactory" concurrency= "8">
+        <rabbit:listener queues="topicMessageQueue" ref="topicMessageQueueConsumer" method="onMessage"/>
+        <rabbit:listener queues="topicEmailQueue" ref="topicEmailQueueConsumer" method="onMessage"/>
+        <rabbit:listener queues="directQueue" ref="directQueueConsumer" method="onMessage"/>
+    </rabbit:listener-container>
+
+    <!-- 创建rabbitTemplate 消息模板类 -->
+    <bean id="rabbitTemplate" class="org.springframework.amqp.rabbit.core.RabbitTemplate">
+        <constructor-arg ref="rabbitConnectionFactory"></constructor-arg>
+    </bean>
+
+</beans>
